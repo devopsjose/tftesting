@@ -16,10 +16,10 @@ provider "random" {
 }
 terraform {
   backend "azurerm" {
-    resource_group_name  = "terraform-state"
-    storage_account_name = "edmentumtfstate"
-    container_name       = "infra-adoagent-azss"
-    key                  = "vmss-build-agent"
+    resource_group_name  = "tfstate-rg"
+    storage_account_name = "tfstatestorageacct2"
+    container_name       = "tfstate"
+    key                  = "terraform.tfstate"
   }
 }
 
