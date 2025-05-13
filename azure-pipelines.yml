@@ -1,36 +1,38 @@
 trigger:
   branches:
     include:
-      - main
+      - main  # Adjust if using a different default branch
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  terraformVersion: '1.8.2'  # Or whichever version you want
+  terraformVersion: '1.8.2'
 
 steps:
+  # Install Terraform
+  - task: TerraformInstaller@1
+    displayName: 'Install Terraform $(terraformVersion)'
+    inputs:
+      terraformVersion: '$(terraformVersion)'
 
-# Terraform Installer task
-- task: TerraformInstaller@1
-  displayName: 'Install Terraform $(terraformVersion)'
-  inputs:
-    terraformVersion: '$(terraformVersion)'
+  # Run Terraform Init and Plan using AzureCLI with WIF
+  - task: AzureCLI@2
+    displayName: 'Terraform Init and Plan'
+    inputs:
+      azureSubscription: 'wifsc'  # Your WIF-enabled service connection
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "Setting environment variables for Terraform..."
+        export ARM_CLIENT_ID=$servicePrincipalId
+        export ARM_TENANT_ID=$tenantId
+        export ARM_SUBSCRIPTION_ID=$subscriptionId
+        export ARM_OIDC_TOKEN=$(az account get-access-token --resource=https://management.azure.com --query accessToken -o tsv)
 
-# Terraform Init and Plan using AzureCLI task with WIF
-- task: AzureCLI@2
-  displayName: Terraform Init and Plan
-  inputs:
-    azureSubscription: 'WifSC'  # Replace with your actual service connection name
-    scriptType: bash
-    scriptLocation: inlineScript
-    inlineScript: |
-      echo "Setting environment variables for Terraform..."
-      export ARM_CLIENT_ID=$servicePrincipalId
-      export ARM_TENANT_ID=$tenantId
-      export ARM_SUBSCRIPTION_ID=$subscriptionId
-      export ARM_OIDC_TOKEN=$(az account get-access-token --resource=https://management.azure.com --query accessToken -o tsv)
+        echo "Initializing Terraform..."
+        terraform init
 
-      terraform version
-      terraform init
-      terraform plan
+        echo "Running Terraform Plan..."
+        terraform plan
+ 
