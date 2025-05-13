@@ -19,10 +19,12 @@ steps:
   # Run Terraform Init and Plan using AzureCLI with WIF
   - task: AzureCLI@2
     displayName: 'Terraform Init and Plan'
+    
     inputs:
       azureSubscription: 'wifsc'  # Your WIF-enabled service connection
       scriptType: bash
       scriptLocation: inlineScript
+      addSpnToEnvironment: true
       inlineScript: |
         echo "Setting environment variables for Terraform..."
         
