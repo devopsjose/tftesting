@@ -25,14 +25,16 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         echo "Setting environment variables for Terraform..."
+        
         export ARM_CLIENT_ID=$servicePrincipalId
+        export ARM_OIDC_TOKEN=$idToken
         export ARM_TENANT_ID=$tenantId
-        export ARM_SUBSCRIPTION_ID=$subscriptionId
-        export ARM_OIDC_TOKEN=$(az account get-access-token --resource=https://management.azure.com --query accessToken -o tsv)
-
+        export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+        export ARM_USE_OIDC=true
+        
         echo "Initializing Terraform..."
         terraform init
-
+        
         echo "Running Terraform Plan..."
         terraform plan
  
