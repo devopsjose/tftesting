@@ -1,0 +1,398 @@
+parameters:
+- name: Stage
+  type: string
+  default: null
+- name: region
+  displayName: Azure Region
+  type: string
+  default: null
+- name: vnet_name
+  type: string
+  default: null
+- name: resource_group_name
+  type: string
+  default: null
+- name: subnet_name
+  type: string
+  default: null
+- name: vm_size
+  type: string
+  default: null
+- name: image_name
+  type: string
+  default: null
+- name: dev_image_version
+  type: string
+  default: null
+- name: prod_image_version
+  type: string
+  default: null
+- name: gallery_name
+  type: string
+  default: null
+- name: service_connection
+  type: string
+  default: null
+- name: mi_service_connection
+  type: string
+  default: null
+- name: managed_identity
+  type: string
+  default: 'c7222cad-5ebd-4220-a6b1-d8b8225115d3'
+
+
+stages:
+- stage: Terraform
+  condition: eq('${{ parameters.Stage }}', 'Terraform Deploy')
+  displayName: Deploy agent into AWS using Terraform
+  jobs:
+  - job: Terraform_Plan
+    displayName: Terraform Plan
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+
+    - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+      displayName: Install Terraform 1.1.6
+      inputs:
+        terraformVersion: 1.1.6
+
+
+
+    - task: AzureCLI@2
+      displayName: Terraform Plan for Azure ScaleSet Build Agent    
+      inputs:
+        azureSubscription: ${{ parameters.service_connection }}
+        scriptType: 'bash'
+        workingDirectory: terraform
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "Setting environment variables for Terraform"
+
+          export ARM_CLIENT_ID=$servicePrincipalId
+          export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+ 
+          echo "Initializing Terraform"
+
+          terraform init -reconfigure
+ 
+          echo "Running Terraform Plan"
+
+          terraform plan
+
+
+    # - script: |
+    #     sudo apt-get update
+    #     sudo apt-get install -y python3 python3-pip
+    #     sudo apt-get install -y azure-cli
+    #   displayName: 'Install Azure CLI using APT'
+    # - script: |
+    #     az version
+    #   displayName: 'Verify Azure CLI Installation'
+    # - bash: |
+    #     which az
+    #   displayName: 'Verify Azure CLI Installation Path'
+    # - script: |
+    #     echo $PATH
+    #   displayName: 'Print PATH'
+
+    # - task: AzureCLI@2
+    #   displayName: Fetch credentials for Azure
+    #   inputs:
+    #     azureSubscription: ${{ parameters.mi_service_connection }}
+    #     scriptType: bash
+    #     addSpnToEnvironment: true 
+    #     workingDirectory: terraform
+    #     useGlobalConfig: true
+    #     scriptLocation: inlineScript
+    #     failOnStandardError: true
+    #     inlineScript: |
+
+    #       # export ARM_USE_MSI=true
+    #       echo "##vso[task.setvariable variable=ARM_TENANT_ID;]$tenantId"
+    #       # echo "##vso[task.setvariable variable=ARM_CLIENT_ID;]$servicePrincipalId"
+    #       # echo "##vso[task.setvariable variable=ARM_CLIENT_ID;]$(managed_identity)"
+    #       echo "##vso[task.setvariable variable=ARM_CLIENT_SECRET;]$servicePrincipalKey"
+    #       export ARM_SUBSCRIPTION_ID=$(az account show | jq -r .id)
+    #       echo "##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID;]$ARM_SUBSCRIPTION_ID"  
+          
+    #       echo "ARM_TENANT_ID: $ARM_TENANT_ID"    
+    #       echo "ARM_SUBSCRIPTION_ID: $ARM_SUBSCRIPTION_ID"
+
+    # - bash: |
+    #       make terraform-plan
+    #   env:
+    #     TF_VAR_region: ${{ parameters.region }}
+    #     TF_VAR_vnet_name: ${{ parameters.vnet_name }}
+    #     TF_VAR_resource_group_name: ${{ parameters.resource_group_name }}
+    #     TF_VAR_subnet_name: ${{ parameters.subnet_name }}
+    #     TF_VAR_vm_size: ${{ parameters.vm_size }}
+    #     TF_VAR_gallery_name: ${{ parameters.gallery_name }}
+    #     TF_VAR_image_name: ${{ parameters.image_name }}
+    #     TF_VAR_dev_image_version: ${{ parameters.dev_image_version }}
+    #     TF_VAR_prod_image_version: ${{ parameters.prod_image_version }}
+
+    #       az login --identity
+
+    #       echo "Retrieving Azure credentials..."
+    #       export ARM_CLIENT_ID=$(az account show --query user.name -o tsv)
+    #       export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
+    #       export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+    #       # export ARM_USE_OIDC=true
+    #       # export ARM_OIDC_TOKEN=$(az account get-access-token --query accessToken -o tsv)
+        
+    #       echo "##vso[task.setvariable variable=ARM_TENANT_ID;]$ARM_TENANT_ID"
+    #       echo "##vso[task.setvariable variable=ARM_CLIENT_ID;]$ARM_CLIENT_ID"
+    #       # echo "##vso[task.setvariable variable=ARM_OIDC_TOKEN;]$ARM_OIDC_TOKEN"
+    #       echo "##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID;]$ARM_SUBSCRIPTION_ID"  
+
+    #       echo "Client ID: $ARM_CLIENT_ID"
+    #       echo "Tenant ID: $ARM_TENANT_ID"
+    #       echo "Subscription ID: $ARM_SUBSCRIPTION_ID"
+
+    #       # Verify token retrieval
+    #       echo "Retrieved OIDC Token: ${#ARM_OIDC_TOKEN} characters"
+
+    #       terraform init
+          
+    # - task: AzureCLI@2
+    #   displayName: Terraform Plan for Azure ScaleSet Build Agent
+    #   inputs:
+    #     azureSubscription: ${{ parameters.mi_service_connection }}
+    #     scriptType: 'bash'
+    #     scriptLocation: 'inlineScript'
+    #     inlineScript: |
+    #       az login --identity --username c7222cad-5ebd-4220-a6b1-d8b8225115d3
+    #       # az login --identity --client-id c7222cad-5ebd-4220-a6b1-d8b8225115d3
+
+    # - task: AzureCLI@2
+    #   displayName: Terraform Plan for Azure ScaleSet Build Agent
+    #   inputs:
+    #     azureSubscription: ${{ parameters.mi_service_connection }}
+    #     scriptType: bash
+    #     # scriptType: pscore
+    #     addSpnToEnvironment: true
+    #     # addSpnToEnvironment: false
+    #     useGlobalConfig: true
+    #     scriptLocation: inlineScript
+    #     failOnStandardError: true
+    #     workingDirectory: terraform
+    #     inlineScript: |
+     
+    #       export ARM_USE_MSI=true
+    #       export ARM_SUBSCRIPTION_ID=$(az account show | jq -r .id)
+    #       export ARM_TENANT_ID=$(az account show | jq -r .tenantId)
+    #       # export tenantId=$(az account show | jq -r .tenantId)
+    #       export ARM_CLIENT_ID=${{ parameters.managed_identity }}
+
+    #       echo "##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID;]$ARM_SUBSCRIPTION_ID" 
+    #       echo "##vso[task.setvariable variable=ARM_TENANT_ID;]$tenantId"
+
+    #       echo "ARM_USE_MSI: $ARM_USE_MSI"
+    #       echo "ARM_SUBSCRIPTION_ID: $ARM_SUBSCRIPTION_ID"
+    #       echo "ARM_TENANT_ID: $ARM_TENANT_ID"
+    #       echo "ARM_CLIENT_ID: $ARM_CLIENT_ID"
+
+    #       # az login --identity --client-id ${{ parameters.managed_identity }}
+    #       # az login --identity --client-id 'c7222cad-5ebd-4220-a6b1-d8b8225115d3'
+    #       az login --identity --client-id $ARM_CLIENT_ID
+          
+    #       terraform init -input=false
+    #       terraform plan -out out.terraform
+
+    #       # Write-Host "##vso[task.setvariable variable=AZURE_CLIENT_ID]$($env:servicePrincipalId)"
+    #       # Write-Host "##vso[task.setvariable variable=AZURE_CLIENT_SECRET]$($env:servicePrincipalKey)"
+    #       # Write-Host "##vso[task.setvariable variable=AZURE_TENANT_ID]$($env:tenantId)"
+    #       $AZURE_SUBSCRIPTION_ID = (az account show | ConvertFrom-Json).id
+    #       Write-Host "##vso[task.setvariable variable=AZURE_SUBSCRIPTION_ID;]$AZURE_SUBSCRIPTION_ID"
+
+
+    #       # $Env:ARM_CLIENT_ID = $env:servicePrincipalId
+    #       # $Env:ARM_CLIENT_SECRET = $env:servicePrincipalKey
+    #       # $Env:ARM_TENANT_ID = $env:tenantId
+    #       # $Env:ARM_SUBSCRIPTION_ID = (az account show | ConvertFrom-Json).id
+    #       # $Env:AZURE_CLIENT_ID = $env:servicePrincipalId
+    #       # $Env:AZURE_CLIENT_SECRET = $env:servicePrincipalKey
+    #       # $Env:AZURE_TENANT_ID = $env:tenantId
+    #       # $Env:AZURE_SUBSCRIPTION_ID = $Env:ARM_SUBSCRIPTION_ID
+    # #       # # $Env:ARM_USE_OIDC = "true"
+    #       $Env:ARM_USE_MSI = $true
+
+    #       # ls -al ~/.azure
+    #       # az account show
+
+
+    #       # $storageAccountName = "edmentumtfstate"
+    #       # $resourceGroupName = "terraform-state"
+
+    #       # $accountExists = az storage account check-name --name $storageAccountName --query "nameAvailable" --output tsv
+
+    #       # if ($accountExists -eq "false") {
+    #       #     Write-Output "Storage account '$storageAccountName' exists in resource group '$resourceGroupName'."
+    #       # } else {
+    #       #     Write-Output "Storage account '$storageAccountName' does not exist in resource group '$resourceGroupName'."
+    #       # }
+
+    #       # make terraform-plan
+
+    #       # echo "##vso[task.setvariable variable=arm.tenant.id;]$tenantId"
+    #       # echo "##vso[task.setvariable variable=arm.client.id;]$servicePrincipalId"
+    #       # echo "##vso[task.setvariable variable=arm.client.secret]$servicePrincipalKey"
+    #       # export ARM_SUBSCRIPTION_ID=$(az account show | jq -r .id)
+    #       # echo "##vso[task.setvariable variable=arm.subscription.id;]$ARM_SUBSCRIPTION_ID"
+      # env:
+      #   TF_VAR_region: ${{ parameters.region }}
+      #   TF_VAR_vnet_name: ${{ parameters.vnet_name }}
+      #   TF_VAR_resource_group_name: ${{ parameters.resource_group_name }}
+      #   TF_VAR_subnet_name: ${{ parameters.subnet_name }}
+      #   TF_VAR_vm_size: ${{ parameters.vm_size }}
+      #   TF_VAR_gallery_name: ${{ parameters.gallery_name }}
+      #   TF_VAR_image_name: ${{ parameters.image_name }}
+      #   TF_VAR_dev_image_version: ${{ parameters.dev_image_version }}
+      #   TF_VAR_prod_image_version: ${{ parameters.prod_image_version }}
+
+    # - bash: |
+    #       # echo ARM_SUBSCRIPTION_ID: $AZURE_SUBSCRIPTION_ID
+    #       # echo ARM_TENANT_ID: $AZURE_TENANT_ID
+    #       # echo ARM_CLIENT_ID: $AZURE_CLIENT_ID
+    #       # echo ARM_CLIENT_SECRET: $AZURE_CLIENT_SECRET
+    #       # which az
+    #       # az login --identity --username ${{ parameters.managed_identity }}
+    #       # az version
+    #       # echo "Client ID: $ARM_CLIENT_ID"
+    #       # echo "Tenant ID: $ARM_TENANT_ID"
+    #       # echo "Subscription ID: $ARM_SUBSCRIPTION_ID"
+    #       # Verify token retrieval
+    #       # echo "Retrieved OIDC Token: ${#ARM_OIDC_TOKEN} characters"
+    #       # make terraform-plan
+    #       terraform init
+    #   displayName: Terraform Plan for Azure ScaleSet Build Agent
+    #   env:
+    #     # ARM_CLIENT_SECRET: $(client-secret)
+    #     TF_VAR_region: ${{ parameters.region }}
+    #     TF_VAR_vnet_name: ${{ parameters.vnet_name }}
+    #     TF_VAR_resource_group_name: ${{ parameters.resource_group_name }}
+    #     TF_VAR_subnet_name: ${{ parameters.subnet_name }}
+    #     TF_VAR_vm_size: ${{ parameters.vm_size }}
+    #     TF_VAR_gallery_name: ${{ parameters.gallery_name }}
+    #     TF_VAR_image_name: ${{ parameters.image_name }}
+    #     TF_VAR_dev_image_version: ${{ parameters.dev_image_version }}
+    #     TF_VAR_prod_image_version: ${{ parameters.prod_image_version }}
+
+    # - task: PowerShell@2
+    #   displayName: Terraform Plan for Azure ScaleSet Build Agent
+    #   inputs:
+    #     targetType: inline
+    #     script: |
+    #       # Install Azure PowerShell module if not already installed
+    #       if (-not (Get-Module -ListAvailable -Name Az)) {
+    #       Install-Module -Name Az -AllowClobber -Force
+    #       }
+
+    #       # Import the Azure PowerShell module
+    #       Import-Module Az
+
+    #       echo "Client ID: ${{ parameters.managed_identity }}"
+
+    #       # Connect-AzAccount -Identity -TenantId '93869b20-cafa-4a5c-9493-66036c7261e6'
+    #       # Connect-AzAccount -Identity -TenantId '93869b20-cafa-4a5c-9493-66036c7261e6' -AccountId '${{ parameters.managed_identity }}' -Subscription '144d2212-24c3-4bf6-8ebf-b6a70b110730'
+    #       Connect-AzAccount -Identity -AccountId '${{ parameters.managed_identity }}'
+    #       # az login --identity --client-id ${{ parameters.managed_identity }}
+    #       # az login --identity --object-id '12010ae8-0a45-4e98-8198-b7c5fa729b89'
+    #       terraform init -input=false
+    #       terraform plan -out out.terraform
+    #     errorActionPreference: stop
+    #     workingDirectory: terraform
+    #   env:
+    #     TF_VAR_region: ${{ parameters.region }}
+    #     TF_VAR_vnet_name: ${{ parameters.vnet_name }}
+    #     TF_VAR_resource_group_name: ${{ parameters.resource_group_name }}
+    #     TF_VAR_subnet_name: ${{ parameters.subnet_name }}
+    #     TF_VAR_vm_size: ${{ parameters.vm_size }}
+    #     TF_VAR_gallery_name: ${{ parameters.gallery_name }}
+    #     TF_VAR_image_name: ${{ parameters.image_name }}
+    #     TF_VAR_dev_image_version: ${{ parameters.dev_image_version }}
+    #     TF_VAR_prod_image_version: ${{ parameters.prod_image_version }}
+
+
+
+    # - task: AzureCLI@2
+    #   displayName: Terraform Plan for Azure ScaleSet Build Agent
+    #   inputs:
+    #     azureSubscription: ${{ parameters.service_connection }}
+    #     scriptType: bash
+    #     addSpnToEnvironment: true
+    #     useGlobalConfig: true
+    #     scriptLocation: inlineScript
+    #     failOnStandardError: true
+    #     inlineScript: |
+    #       which az
+    #       az login --service-principal -u 8eb4a74b-86b0-4307-826f-1141f3cc4737 -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+    #       az version
+    #       make terraform-plan
+    #   env:
+    #     TF_VAR_region: ${{ parameters.region }}
+    #     TF_VAR_vnet_name: ${{ parameters.vnet_name }}
+    #     TF_VAR_resource_group_name: ${{ parameters.resource_group_name }}
+    #     TF_VAR_subnet_name: ${{ parameters.subnet_name }}
+    #     TF_VAR_vm_size: ${{ parameters.vm_size }}
+    #     TF_VAR_gallery_name: ${{ parameters.gallery_name }}
+    #     TF_VAR_image_name: ${{ parameters.image_name }}
+    #     TF_VAR_dev_image_version: ${{ parameters.dev_image_version }}
+    #     TF_VAR_prod_image_version: ${{ parameters.prod_image_version }}
+
+    # - task: PublishBuildArtifacts@1
+    #   displayName: Publish Terraform Plan file
+    #   inputs:
+    #     pathToPublish: terraform/out.terraform
+    #     artifactName: terraformplan
+  # - job: Confirm_Terraform_Plan
+  #   dependsOn: Terraform_Plan
+  #   timeoutInMinutes: 1450
+  #   displayName: Confirm Terraform Plan
+  #   pool: server
+  #   steps:
+  #   - task: ManualValidation@0
+  #     timeoutInMinutes: 1440 
+  #     inputs:
+  #       instructions: 'View the Terraform Plan in previous task before confirming Terraform Apply'
+  #       onTimeout: reject
+  # - job: Terraform_Apply
+  #   dependsOn: Confirm_Terraform_Plan
+  #   pool:
+  #     vmImage: ubuntu-20.04
+  #   displayName: Terraform Apply for Azure ScaleSet Build Agent
+  #   steps:
+  #   - task: AzureCLI@2
+  #     displayName: Fetch credentials for azure
+  #     inputs:
+          # azureSubscription: ${{ parameters.service_connection }}
+  #       scriptType: bash
+  #       addSpnToEnvironment: true
+  #       useGlobalConfig: true
+  #       scriptLocation: inlineScript
+  #       failOnStandardError: true
+  #       inlineScript: |
+  #         echo "##vso[task.setvariable variable=arm.tenant.id;]$tenantId"
+  #         echo "##vso[task.setvariable variable=arm.client.id;]$servicePrincipalId"
+  #         echo "##vso[task.setvariable variable=arm.client.secret;]$servicePrincipalKey"
+  #         export ARM_SUBSCRIPTION_ID=$(az account show | jq -r .id)
+  #         echo "##vso[task.setvariable variable=arm.subscription.id;]$ARM_SUBSCRIPTION_ID"
+  #   - task: DownloadBuildArtifacts@0
+  #     displayName: Download Terraform Plan file
+  #     inputs:
+  #       buildType: current
+  #       downloadType: single
+  #       artifactName: terraformplan
+  #       downloadPath: $(Pipeline.Workspace)
+  #   - task: CopyFiles@2
+  #     displayName: Move Terraform Plan file
+  #     inputs:
+  #       SourceFolder: $(Pipeline.Workspace)/terraformplan
+  #       contents: '*' 
+  #       targetFolder: $(Build.Repository.LocalPath)/terraform
+  #   - bash: |
+  #       make terraform-apply
+  #     displayName: Terraform Apply for Azure ScaleSet Build Agent
+

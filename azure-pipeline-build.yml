@@ -1,0 +1,141 @@
+trigger: none
+
+parameters:
+- name: Stage
+  displayName: Stage
+  type: string
+  default: Build
+  values:
+  - Build
+  - Terraform Deploy
+  - Promote Prod Version
+
+variables:
+- name: revision
+  value: $[counter('revcounter',0)]
+- name: az_region
+  value: centralus
+- name: vnet_name
+  value: vmss-build-agent
+- name: resource_group_name
+  value: vmss-build-agent
+- name: subnet_name
+  value: vmss-build-agent
+- name: vm_size
+  value: Standard_B8ms
+- name: image_name
+  value: elf-vmss-build-agent
+- name: image_version
+  value: 1.0.$(revision)
+- name: gallery_name
+  value: vmss-build-agent
+- name: service_connection
+  value: 'Edmentum Azure DevOps Service Connection'
+- name: mi_service_connection
+  value: 'Edmentum Azure DevOps Managed Identity'
+- name: managed_identity
+  value: 'c7222cad-5ebd-4220-a6b1-d8b8225115d3'
+- name: organization
+  value: edmentum
+- name: project
+  value: ED
+- name: variable_group_Id
+  value: 24
+- group: 'Azure-VMSS-Agent'
+
+# PAT Variable set in the GUI, value is a PAT token with Read/Write access to Packaging
+# creation-password Variable set in the GUI
+
+pool: General
+
+stages:
+- ${{ if eq(parameters.Stage, 'Build') }}:
+  - stage: Build
+    condition: and(succeeded(), eq('${{ parameters.Stage }}', 'Build'))
+    displayName: Build agent using Packer
+    jobs:
+    - job: Build_ADO_Agent
+      timeoutInMinutes: 0
+      displayName: Build ADO Agent
+      steps:
+      - task: AzureCLI@2
+        displayName: Create Agent image using Packer
+        inputs:
+          # azureSubscription: $(service_connection)
+          scriptType: bash
+          # addSpnToEnvironment: true 
+          addSpnToEnvironment: false
+          useGlobalConfig: true
+          scriptLocation: inlineScript
+          failOnStandardError: true
+          inlineScript: |
+            az login --identity --username $(managed_identity)
+
+            export ARM_SUBSCRIPTION_ID=$(az account show --query id --output tsv)
+            export ARM_TENANT_ID=$(az account show --query homeTenantId --output tsv)
+            
+            # export ARM_TENANT_ID=$tenantId
+            # export ARM_CLIENT_ID=$servicePrincipalId
+            # export ARM_CLIENT_SECRET=$servicePrincipalKey
+
+            
+            echo "##[section]packer init"
+            packer init src/Windows2022.pkr.hcl
+            echo "##[section]packer build"
+            packer build -force src/Windows2022.pkr.hcl
+        env:
+          PKR_VAR_image_version: '$(image_version)'
+          PKR_VAR_location: $(az_region)
+          PKR_VAR_resource_group: $(resource_group_name)
+          VNET_NAME: $(vnet_name)
+          VNET_SUBNET: $(subnet_name)
+          PKR_VAR_vm_size: $(vm_size)
+          PKR_VAR_image_name: $(image_name)
+          PKR_VAR_gallery_name: $(gallery_name)
+          PKR_VAR_install_password: $(creation-password)
+          PKR_VAR_system_access: $(System.AccessToken)
+          PKR_VAR_PAT: $(PAT)
+    - job: Store_Dev_Image_Version
+      dependsOn: Build_ADO_Agent
+      timeoutInMinutes: 15
+      pool:
+        vmImage: ubuntu-latest
+      displayName: Store Dev Image Name post build
+      steps:
+        - pwsh: |
+            az pipelines variable-group variable update --group-id "$(variable_group_Id)" --name "dev_image_version" --value "$(image_version)"
+          displayName: Store Dev Image Name post build
+          env:
+            AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+
+- ${{ if eq(parameters.Stage, 'Terraform Deploy') }}:
+  - template: terraform.yml
+    parameters:
+      Stage: ${{ parameters.Stage }}
+      region: $(az_region)
+      vnet_name: $(vnet_name)
+      resource_group_name: $(resource_group_name)
+      subnet_name: $(subnet_name)
+      vm_size: $(vm_size)
+      image_name: $(image_name)
+      dev_image_version: $(dev_image_version)
+      prod_image_version: $(prod_image_version)
+      gallery_name: $(gallery_name)
+      service_connection: $(service_connection)
+      mi_service_connection: $(mi_service_connection)
+      managed_identity: $(managed_identity)
+
+- ${{ if eq(parameters.Stage, 'Promote Prod Version') }}:
+  - stage: StoreDevasProd
+    displayName: 'Store Dev Image Version as Prod'
+    jobs:
+    - job: Update_Prod_Image_Version
+      timeoutInMinutes: 15
+      pool:
+        vmImage: ubuntu-latest
+      steps:
+      - pwsh: |
+          az pipelines variable-group variable update --group-id "$(variable_group_Id)" --name "prod_image_version" --value "$(dev_image_version)"
+        displayName: Store Prod Image Name post promotion
+        env:
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken) 

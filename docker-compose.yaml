@@ -1,0 +1,71 @@
+services:
+  packer:
+    image: hashicorp/packer:1.8
+    environment:
+      ARM_SUBSCRIPTION_ID:
+      ARM_TENANT_ID:
+      ARM_CLIENT_ID:
+      ARM_CLIENT_SECRET:
+      AWS_ACCESS_KEY_ID:
+      AWS_SECRET_ACCESS_KEY:
+      AWS_SESSION_TOKEN:
+      AWS_DEFAULT_REGION:
+      PKR_VAR_subscription_id:
+      PKR_VAR_tenant_id:
+      PKR_VAR_client_id:
+      PKR_VAR_client_secret:
+      PKR_VAR_image_version:
+      PKR_VAR_location:
+      PKR_VAR_resource_group:
+      PKR_VAR_vm_size:
+      PKR_VAR_image_name:
+      PKR_VAR_gallery_name:
+      PKR_VAR_install_password:
+      PKR_VAR_system_access:
+      PKR_VAR_PAT:
+    working_dir: /workspace
+    ports:
+      - '22:22'
+      - '5985:5985'
+    volumes:
+      - .:/workspace
+      - ~/.ssh:/root/.ssh
+
+  awscli:
+    image: amazon/aws-cli:latest
+    environment:
+      AWS_ACCESS_KEY_ID:
+      AWS_SECRET_ACCESS_KEY:
+      AWS_SESSION_TOKEN:
+      AWS_DEFAULT_REGION:
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+
+  terraform:
+    image: zenika/terraform-azure-cli
+    # image: hashicorp/terraform #:1.1.6
+    environment:
+      ARM_SUBSCRIPTION_ID:
+      ARM_TENANT_ID:
+      ARM_CLIENT_ID:
+      ARM_CLIENT_SECRET:
+      # AZURE_SUBSCRIPTION_ID:
+      # AZURE_TENANT_ID:
+      # AZURE_CLIENT_ID:
+      # AZURE_CLIENT_SECRET:
+      # ARM_OIDC_TOKEN:
+      TF_VAR_region:
+      TF_VAR_vnet_name:
+      TF_VAR_resource_group_name:
+      TF_VAR_subnet_name:
+      TF_VAR_vm_size:
+      TF_VAR_gallery_name:
+      TF_VAR_image_name:
+      TF_VAR_dev_image_version:
+      TF_VAR_prod_image_version:
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ~/.ssh:/root/.ssh
+      - ~/.azure:/root/.azure
