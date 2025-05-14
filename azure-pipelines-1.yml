@@ -21,7 +21,7 @@ steps:
     displayName: 'Terraform Init and Plan'
     
     inputs:
-      azureSubscription: 'wifsc'  # Your WIF-enabled service connection
+      azureSubscription: 'NewSC'  # Your WIF-enabled service connection
       scriptType: bash
       scriptLocation: inlineScript
       workingDirectory: my-new-folder
