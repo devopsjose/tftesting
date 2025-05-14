@@ -24,6 +24,7 @@ steps:
       azureSubscription: 'wifsc'  # Your WIF-enabled service connection
       scriptType: bash
       scriptLocation: inlineScript
+      workingDirectory: my-new-folder
       addSpnToEnvironment: true
       inlineScript: |
         echo "Setting environment variables for Terraform..."
